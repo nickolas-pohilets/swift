@@ -1869,7 +1869,10 @@ Type AbstractClosureExpr::getResultType(
   if (getType(E)->hasError())
     return getType(E);
 
-  return getType(E)->castTo<FunctionType>()->getResult();
+  if (FunctionType *FuncTy = getType(E)->getAs<FunctionType>()) {
+    return FuncTy->getResult();
+  }
+  return getType(E)->castTo<ClosureAsStructType>()->getClosureRequirement()->getResultInterfaceType();
 }
 
 bool AbstractClosureExpr::isBodyThrowing() const {

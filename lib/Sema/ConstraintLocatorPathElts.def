@@ -195,6 +195,12 @@ CUSTOM_LOCATOR_PATH_ELT(ArgumentAttribute)
 /// The result of a chain of member accesses off an UnresolvedMemberExpr
 SIMPLE_LOCATOR_PATH_ELT(UnresolvedMemberChainResult)
 
+/// Locator for a binding from a closure literal disjunction choice.
+SIMPLE_LOCATOR_PATH_ELT(ClosureAsStructDisjunctionChoice)
+
+/// Locator for a binding signature of protocol requirement of the closure-as-struct to function type of the closure.
+SIMPLE_LOCATOR_PATH_ELT(ClosureAsStructRequirement)
+
 #undef LOCATOR_PATH_ELT
 #undef CUSTOM_LOCATOR_PATH_ELT
 #undef SIMPLE_LOCATOR_PATH_ELT

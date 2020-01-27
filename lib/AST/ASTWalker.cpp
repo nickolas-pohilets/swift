@@ -589,6 +589,9 @@ class Traversal : public ASTVisitor<Traversal, Expr*, Stmt*,
   Expr *visitIdentityExpr(IdentityExpr *E) {
     if (Expr *subExpr = doIt(E->getSubExpr())) {
       E->setSubExpr(subExpr);
+      if (!E->isImplicit() && E->getSourceRange().isInvalid()) {
+        E->setImplicit();
+      }
       return E;
     }
     return nullptr;

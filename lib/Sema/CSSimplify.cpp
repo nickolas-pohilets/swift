@@ -1465,6 +1465,7 @@ ConstraintSystem::matchTupleTypes(TupleType *tuple1, TupleType *tuple2,
   case ConstraintKind::OneWayEqual:
   case ConstraintKind::OneWayBindParam:
   case ConstraintKind::DefaultClosureType:
+  case ConstraintKind::ClosureAsStructRequirement:
     llvm_unreachable("Not a conversion");
   }
 
@@ -1564,6 +1565,7 @@ static bool matchFunctionRepresentations(FunctionTypeRepresentation rep1,
   case ConstraintKind::OneWayEqual:
   case ConstraintKind::OneWayBindParam:
   case ConstraintKind::DefaultClosureType:
+  case ConstraintKind::ClosureAsStructRequirement:
     return false;
   }
 
@@ -1899,6 +1901,7 @@ ConstraintSystem::matchFunctionTypes(FunctionType *func1, FunctionType *func2,
   case ConstraintKind::OneWayEqual:
   case ConstraintKind::OneWayBindParam:
   case ConstraintKind::DefaultClosureType:
+  case ConstraintKind::ClosureAsStructRequirement:
     llvm_unreachable("Not a relational constraint");
   }
 
@@ -2409,6 +2412,8 @@ ConstraintSystem::matchExistentialTypes(Type type1, Type type2,
                                         ConstraintKind kind,
                                         TypeMatchOptions flags,
                                         ConstraintLocatorBuilder locator) {
+  //type1->dump();
+  //type2->dump();
   // If the first type is a type variable or member thereof, there's nothing
   // we can do now.
   if (type1->isTypeVariableOrMember()) {
@@ -4653,6 +4658,7 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
     case ConstraintKind::OneWayEqual:
     case ConstraintKind::OneWayBindParam:
     case ConstraintKind::DefaultClosureType:
+    case ConstraintKind::ClosureAsStructRequirement:
       llvm_unreachable("Not a relational constraint");
     }
   }
@@ -4704,6 +4710,7 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
       llvm_unreachable("unmapped dependent type in type checker");
 
     case TypeKind::TypeVariable:
+    case TypeKind::ClosureAsStruct:
       llvm_unreachable("type variables should have already been handled by now");
 
     case TypeKind::DependentMember: {
@@ -5387,6 +5394,7 @@ ConstraintSystem::simplifyConstructionConstraint(
     llvm_unreachable("unmapped dependent type");
 
   case TypeKind::TypeVariable:
+  case TypeKind::ClosureAsStruct:
   case TypeKind::DependentMember:
     return SolutionKind::Unsolved;
 
@@ -5583,6 +5591,22 @@ ConstraintSystem::SolutionKind ConstraintSystem::simplifyConformsToConstraint(
   } break;
   case ConstraintKind::ConformsTo:
   case ConstraintKind::LiteralConformsTo: {
+    if (auto closureTy = type->getAs<ClosureAsStructType>()) {
+      if (protocol->requiresClass()) 
+        return SolutionKind::Error;
+
+      // Assume closure literal conforms to everything requested
+      // Any errors will be reported later at the stage of the protocol
+      // conformance synthesis
+      ClosureAsStructConformance record = {
+        .Ty = closureTy,
+        .Proto = protocol
+      };
+      assert(closureAsStructTransformed.find(closureTy) == closureAsStructTransformed.end() &&
+             "adding protocol conformance for closure that was already rewritten");
+      ClosureProtocols.push_back(record);
+      return SolutionKind::Solved;
+    }
     // Check whether this type conforms to the protocol.
     auto conformance = DC->getParentModule()->lookupConformance(
         type, protocol);
@@ -6153,6 +6177,19 @@ performMemberLookup(ConstraintKind constraintKind, DeclNameRef memberName,
     return result;
   }
 
+  auto &ctx = getASTContext();
+  if (auto closureTy = instanceTy->getAs<ClosureAsStructType>()) {
+    FuncDecl* requirement = closureTy->getClosureRequirement();
+    if (memberName == DeclNameRef(ctx.Id_callAsFunction)) {
+      MemberLookupResult result;
+      result.OverallResult = MemberLookupResult::HasResults;
+      result.ViableCandidates.push_back(
+          OverloadChoice(baseTy, requirement, functionRefKind)
+      );
+      return result;
+    }
+  }
+
   // Okay, start building up the result list.
   MemberLookupResult result;
   result.OverallResult = MemberLookupResult::HasResults;
@@ -6176,7 +6213,6 @@ performMemberLookup(ConstraintKind constraintKind, DeclNameRef memberName,
 
   // If the base type is a tuple type, look for the named or indexed member
   // of the tuple.
-  auto &ctx = getASTContext();
   if (auto baseTuple = baseObjTy->getAs<TupleType>()) {
     // Tuples don't have compound-name members.
     if (!memberName.isSimpleName() || memberName.isSpecial())
@@ -7434,6 +7470,35 @@ ConstraintSystem::simplifyDefaultClosureTypeConstraint(
 
   // Otherwise, any type is fine.
   return SolutionKind::Solved;
+}
+
+ConstraintSystem::SolutionKind
+ConstraintSystem::simplifyClosureAsTypeRequirementConstraint(
+    Type structType,
+    Type funcType,
+    TypeMatchOptions flags,
+    ConstraintLocatorBuilder locator) {
+  structType = getFixedTypeRecursive(structType, flags, /*wantRValue=*/true);
+
+  if (structType->isTypeVariableOrMember()) {
+    if (flags.contains(TMF_GenerateConstraints)) {
+      addUnsolvedConstraint(
+          Constraint::create(*this, ConstraintKind::ClosureAsStructRequirement,
+            structType, funcType, getConstraintLocator(locator)));
+      return SolutionKind::Solved;
+    }
+
+    return SolutionKind::Unsolved;
+  }
+
+  if (auto structTy = structType->getAs<ClosureAsStructType>()) {
+    // Protocol requirement has type of (Self) -> (Args) -> Result
+    // Drop first argument.
+    Type requirementType = structTy->getClosureRequirement()->getMethodInterfaceType();
+    return matchTypes(requirementType, funcType, ConstraintKind::Bind, flags, locator);
+  }
+
+  return SolutionKind::Error;
 }
 
 ConstraintSystem::SolutionKind
@@ -10228,6 +10293,7 @@ ConstraintSystem::addConstraintImpl(ConstraintKind kind, Type first,
   case ConstraintKind::KeyPath:
   case ConstraintKind::KeyPathApplication:
   case ConstraintKind::DefaultClosureType:
+  case ConstraintKind::ClosureAsStructRequirement:
     llvm_unreachable("Use the correct addConstraint()");
   }
 
@@ -10718,6 +10784,11 @@ ConstraintSystem::simplifyConstraint(const Constraint &constraint) {
                                                 constraint.getTypeVariables(),
                                                 /*flags*/ None,
                                                 constraint.getLocator());
+  case ConstraintKind::ClosureAsStructRequirement:
+      return simplifyClosureAsTypeRequirementConstraint(constraint.getFirstType(),
+                                                        constraint.getSecondType(),
+                                                        TMF_GenerateConstraints,
+                                                        constraint.getLocator());
 
   case ConstraintKind::FunctionInput:
   case ConstraintKind::FunctionResult:

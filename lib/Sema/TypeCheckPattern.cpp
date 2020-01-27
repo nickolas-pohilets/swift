@@ -1622,8 +1622,8 @@ Pattern *TypeChecker::coercePatternToType(ContextualPattern pattern,
 
 /// Coerce the specified parameter list of a ClosureExpr to the specified
 /// contextual type.
-void TypeChecker::coerceParameterListToType(ParameterList *P, ClosureExpr *CE,
-                                            AnyFunctionType *FN) {
+void TypeChecker::coerceParameterListToType(ClosureExpr *CE, AnyFunctionType *FN) {
+  ParameterList *P = CE->getParameters();
 
   // Local function to check if the given type is valid e.g. doesn't have
   // errors, type variables or unresolved types related to it.

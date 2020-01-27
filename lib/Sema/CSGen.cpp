@@ -2722,9 +2722,6 @@ namespace {
     }
 
     Type visitClosureExpr(ClosureExpr *closure) {
-      auto *locator = CS.getConstraintLocator(closure);
-      auto closureType = CS.createTypeVariable(locator, TVO_CanBindToNoEscape);
-
       // Collect any variable references whose types involve type variables,
       // because there will be a dependency on those type variables once we have
       // generated constraints for the closure body. This includes references
@@ -2777,12 +2774,30 @@ namespace {
       if (!inferredType || inferredType->hasError())
         return Type();
 
-      CS.addUnsolvedConstraint(
-          Constraint::create(CS, ConstraintKind::DefaultClosureType,
-                             closureType, inferredType, locator,
-                             collectVarRefs.varRefs));
-
       CS.setClosureType(closure, inferredType);
+
+      auto *locator = CS.getConstraintLocator(closure);
+      auto closureType = CS.createTypeVariable(locator, TVO_CanBindToNoEscape);
+
+      // Create the constraint to bind to the function type and make it the favored choice.
+      auto *asFunction = Constraint::create(CS, ConstraintKind::DefaultClosureType,
+                                                closureType, inferredType, locator,
+                                                collectVarRefs.varRefs);
+      asFunction->setFavored();
+
+      // Create the constraint to bind requirement of the ClosureAsStructType to inferredType.
+      auto *requirementLocator = CS.getConstraintLocator(locator, ConstraintLocator::ClosureAsStructRequirement);
+      auto *asStruct = Constraint::create(CS, ConstraintKind::ClosureAsStructRequirement, closureType, inferredType, requirementLocator);
+
+      // Create the disjunction
+      auto *disjunctionLocator = CS.getConstraintLocator(locator, ConstraintLocator::ClosureAsStructDisjunctionChoice);
+      llvm::SmallVector<Constraint *, 2> choices = { asFunction, asStruct };
+      CS.addDisjunctionConstraint(choices, disjunctionLocator, RememberChoice);
+
+      //auto *bindToStruct = Constraint::create(CS, ConstraintKind::Bind, varTy, structTy, disjunctionLocator);
+      //auto callAsFunctionNameRef = DeclNameRef(closure->getASTContext().Id_callAsFunction);
+      //auto *bindRequirement = Constraint::createMember(CS, ConstraintKind::ValueMember, structTy, closureType, callAsFunctionNameRef, CurDC, FunctionRefKind::Unapplied, requirementLocator);
+
       return closureType;
     }
 

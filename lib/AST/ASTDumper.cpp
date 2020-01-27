@@ -3929,6 +3929,11 @@ namespace {
       PrintWithColorRAII(OS, ParenthesisColor) << ')';
     }
 
+    void visitClosureAsStructType(ClosureAsStructType *T, StringRef label) {
+      printCommon(label, "closure_as_struct_type");
+      PrintWithColorRAII(OS, ParenthesisColor) << ')';
+    }
+
 #undef TRIVIAL_TYPE_PRINTER
   };
 } // end anonymous namespace

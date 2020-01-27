@@ -3945,6 +3945,10 @@ public:
     llvm_unreachable("type variables should not escape the type checker");
   }
 
+  void visitClosureAsStructType(const ClosureAsStructType *) {
+    llvm_unreachable("closure literal types should not escape the type checker");
+  }
+
   void visitBuiltinTypeImpl(Type ty) {
     using namespace decls_block;
     TypeAliasDecl *typeAlias =

@@ -887,6 +887,7 @@ bool ConstraintSystem::PotentialBindings::infer(
   case ConstraintKind::FunctionInput:
   case ConstraintKind::FunctionResult:
   case ConstraintKind::OpaqueUnderlyingType:
+    case ConstraintKind::ClosureAsStructRequirement:
     // Constraints from which we can't do anything.
     break;
 
@@ -930,6 +931,14 @@ bool ConstraintSystem::PotentialBindings::infer(
     break;
 
   case ConstraintKind::ConformsTo:
+        if (auto protoTy = constraint->getSecondType()->getAs<ProtocolType>()) {
+          FuncDecl* requirement = protoTy->getDecl()->requirementForClosureAsStruct();
+          if (requirement != nullptr) {
+            auto type = ClosureAsStructType::getNew(requirement->getASTContext(), protoTy->getDecl(), requirement);
+            addPotentialBinding(PotentialBinding(type, AllowedBindingKind::Exact, constraint));
+          }
+        }
+        LLVM_FALLTHROUGH;
   case ConstraintKind::SelfObjectOfProtocol:
     return false;
 
@@ -968,26 +977,24 @@ bool ConstraintSystem::PotentialBindings::infer(
 
   case ConstraintKind::ValueMember:
   case ConstraintKind::UnresolvedValueMember:
-  case ConstraintKind::ValueWitness:
+  case ConstraintKind::ValueWitness: {
     // If our type variable shows up in the base type, there's
     // nothing to do.
     // FIXME: Can we avoid simplification here?
-    if (ConstraintSystem::typeVarOccursInType(
-            TypeVar, cs.simplifyType(constraint->getFirstType()),
-            &InvolvesTypeVariables)) {
+    auto firstType = cs.simplifyType(constraint->getFirstType());
+    if (ConstraintSystem::typeVarOccursInType(TypeVar, firstType, &InvolvesTypeVariables)) {
       return false;
     }
 
     // If the type variable is in the list of member type
     // variables, it is fully bound.
     // FIXME: Can we avoid simplification here?
-    if (ConstraintSystem::typeVarOccursInType(
-            TypeVar, cs.simplifyType(constraint->getSecondType()),
-            &InvolvesTypeVariables)) {
+    auto secondType = cs.simplifyType(constraint->getSecondType());
+    if (ConstraintSystem::typeVarOccursInType(TypeVar, secondType, &InvolvesTypeVariables)) {
       FullyBound = true;
     }
     break;
-
+  }
   case ConstraintKind::OneWayEqual:
   case ConstraintKind::OneWayBindParam: {
     // Don't produce any bindings if this type variable is on the left-hand

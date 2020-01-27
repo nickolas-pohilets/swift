@@ -2569,16 +2569,21 @@ void ConstraintSystem::resolveOverload(ConstraintLocator *locator,
 }
 
 Type ConstraintSystem::simplifyTypeImpl(Type type,
-    llvm::function_ref<Type(TypeVariableType *)> getFixedTypeFn) const {
+    llvm::function_ref<Type(TypeVariableType *)> getFixedTypeFn, 
+    llvm::function_ref<Type(ClosureAsStructType *)> getRewrittenTypeFn) const {
   return type.transform([&](Type type) -> Type {
     if (auto tvt = dyn_cast<TypeVariableType>(type.getPointer()))
       return getFixedTypeFn(tvt);
+
+    if (auto cas = dyn_cast<ClosureAsStructType>(type.getPointer()))
+      return getRewrittenTypeFn(cas);
 
     // If this is a dependent member type for which we end up simplifying
     // the base to a non-type-variable, perform lookup.
     if (auto depMemTy = dyn_cast<DependentMemberType>(type.getPointer())) {
       // Simplify the base.
-      Type newBase = simplifyTypeImpl(depMemTy->getBase(), getFixedTypeFn);
+      Type newBase = simplifyTypeImpl(depMemTy->getBase(), getFixedTypeFn,
+          getRewrittenTypeFn);
 
       // If nothing changed, we're done.
       if (newBase.getPointer() == depMemTy->getBase().getPointer())
@@ -2627,7 +2632,7 @@ Type ConstraintSystem::simplifyTypeImpl(Type type,
 }
 
 Type ConstraintSystem::simplifyType(Type type) const {
-  if (!type->hasTypeVariable())
+  if (!type->hasTypeVariable() && !type->hasClosureAsStructType())
     return type;
 
   // Map type variables down to the fixed types of their representatives.
@@ -2637,17 +2642,31 @@ Type ConstraintSystem::simplifyType(Type type) const {
           return simplifyType(fixed);
 
         return getRepresentative(tvt);
-      });
+      },
+      llvm::identity<ClosureAsStructType *>());
 }
 
-Type Solution::simplifyType(Type type) const {
-  if (!(type->hasTypeVariable() || type->hasHole()))
+Type Solution::simplifyType(Type type, bool keepClosureAsStruct) const {
+  if (!(type->hasTypeVariable() || type->hasHole()) && (keepClosureAsStruct || !type->hasClosureAsStructType()))
     return type;
 
   // Map type variables to fixed types from bindings.
   auto &cs = getConstraintSystem();
   auto resolvedType = cs.simplifyTypeImpl(
-      type, [&](TypeVariableType *tvt) -> Type { return getFixedType(tvt); });
+    type,
+    [&](TypeVariableType *tvt) -> Type {
+      Type t = getFixedType(tvt);
+      // Note that bound type may contain ClosureAsStructType inside, so we need to simplify it recursive.
+      return simplifyType(t, keepClosureAsStruct);
+    },
+    [&](ClosureAsStructType *cast) -> Type {
+      if (keepClosureAsStruct) {
+        return cast;
+      }
+      auto newExpr = closureAsStructTransformed.find(cast);
+      return newExpr->getSecond().generatedStructType;
+    }
+  );
 
   // Holes shouldn't be reachable through a solution, they are only
   // useful to determine what went wrong exactly.

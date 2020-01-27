@@ -4367,6 +4367,9 @@ public:
   /// contain 'Self' in 'parameter' or 'other' position.
   bool existentialTypeSupported() const;
 
+  /// Returns a protocol requirement that should be impemented by closure body if closure is re-written into anonymous struct conforming to this protocol.
+  FuncDecl* requirementForClosureAsStruct();
+
 private:
   void computeKnownProtocolKind() const;
 

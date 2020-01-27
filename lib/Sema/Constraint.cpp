@@ -88,6 +88,11 @@ Constraint::Constraint(ConstraintKind Kind, Type First, Type Second,
     assert(!Second.isNull());
     break;
 
+  case ConstraintKind::ClosureAsStructRequirement:
+      assert(!First.isNull());
+      assert(Second->is<FunctionType>() && "The right-hand side type should be a function type");
+      break;
+
   case ConstraintKind::BindOverload:
     llvm_unreachable("Wrong constructor for overload binding constraint");
 
@@ -142,6 +147,7 @@ Constraint::Constraint(ConstraintKind Kind, Type First, Type Second, Type Third,
   case ConstraintKind::OneWayEqual:
   case ConstraintKind::OneWayBindParam:
   case ConstraintKind::DefaultClosureType:
+  case ConstraintKind::ClosureAsStructRequirement:
     llvm_unreachable("Wrong constructor");
 
   case ConstraintKind::KeyPath:
@@ -269,6 +275,7 @@ Constraint *Constraint::clone(ConstraintSystem &cs) const {
   case ConstraintKind::OneWayEqual:
   case ConstraintKind::OneWayBindParam:
   case ConstraintKind::DefaultClosureType:
+  case ConstraintKind::ClosureAsStructRequirement:
     return create(cs, getKind(), getFirstType(), getSecondType(), getLocator());
 
   case ConstraintKind::ApplicableFunction:
@@ -359,6 +366,9 @@ void Constraint::print(llvm::raw_ostream &Out, SourceManager *sm) const {
   case ConstraintKind::OneWayBindParam: Out << " one-way bind param to "; break;
   case ConstraintKind::DefaultClosureType:
     Out << " closure can default to ";
+    break;
+  case ConstraintKind::ClosureAsStructRequirement:
+    Out << " closure as struct with requirement of type ";
     break;
   case ConstraintKind::KeyPath:
       Out << " key path from ";
@@ -586,6 +596,7 @@ gatherReferencedTypeVars(Constraint *constraint,
   case ConstraintKind::OneWayEqual:
   case ConstraintKind::OneWayBindParam:
   case ConstraintKind::DefaultClosureType:
+  case ConstraintKind::ClosureAsStructRequirement:
     constraint->getFirstType()->getTypeVariables(typeVars);
     constraint->getSecondType()->getTypeVariables(typeVars);
     break;

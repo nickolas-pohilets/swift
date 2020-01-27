@@ -1,5 +1,6 @@
 add_swift_host_library(swiftSema STATIC
   BuilderTransform.cpp
+  ClosureAsStructTransform.cpp
   CSApply.cpp
   CSBindings.cpp
   CSClosure.cpp

@@ -967,6 +967,9 @@ LookupConformanceInModuleRequest::evaluate(
   auto protocol = desc.PD;
   ASTContext &ctx = mod->getASTContext();
 
+  assert(!type->is<ClosureAsStructType>() &&
+         "Should not attempt to find conformance for ClosureAsStructType. Use struct created after re-writing instead");
+
   // A dynamic Self type conforms to whatever its underlying type
   // conforms to.
   if (auto selfType = type->getAs<DynamicSelfType>())

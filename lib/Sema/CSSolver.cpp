@@ -190,6 +190,8 @@ Solution ConstraintSystem::finalize() {
     solution.functionBuilderTransformed.insert(transformed);
   }
 
+  solution.closureAsStructTransformed = closureAsStructTransformed;
+
   return solution;
 }
 
@@ -481,6 +483,7 @@ ConstraintSystem::SolverScope::SolverScope(ConstraintSystem &cs)
   numFunctionBuilderTransformed = cs.functionBuilderTransformed.size();
   numResolvedOverloads = cs.ResolvedOverloads.size();
   numInferredClosureTypes = cs.ClosureTypes.size();
+  numClosureProtocols = cs.ClosureProtocols.size();
   numContextualTypes = cs.contextualTypes.size();
   numSolutionApplicationTargets = cs.solutionApplicationTargets.size();
   numCaseLabelItems = cs.caseLabelItems.size();
@@ -497,6 +500,8 @@ ConstraintSystem::SolverScope::~SolverScope() {
     cs.TypeVariables.pop_back();
 
   truncate(cs.ResolvedOverloads, numResolvedOverloads);
+
+  cs.ClosureProtocols.resize(numClosureProtocols);
 
   // Restore bindings.
   cs.restoreTypeVariableBindings(cs.solverState->savedBindings.size() -
@@ -1764,6 +1769,7 @@ void ConstraintSystem::ArgumentInfoCollector::walk(Type argType) {
       case ConstraintKind::OneWayEqual:
       case ConstraintKind::OneWayBindParam:
       case ConstraintKind::DefaultClosureType:
+      case ConstraintKind::ClosureAsStructRequirement:
         break;
       }
     }

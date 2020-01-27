@@ -298,8 +298,7 @@ SolutionApplicationToFunctionResult ConstraintSystem::applySolution(
 
     // Coerce the parameter types.
     closureFnType = closureType->castTo<FunctionType>();
-    auto *params = closure->getParameters();
-    TypeChecker::coerceParameterListToType(params, closure, closureFnType);
+    TypeChecker::coerceParameterListToType(closure, closureFnType);
 
     // Coerce the result type, if it was written explicitly.
     if (closure->hasExplicitResultType()) {

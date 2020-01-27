@@ -765,6 +765,27 @@ struct AppliedBuilderTransform {
   Expr *returnExpr = nullptr;
 };
 
+struct AppliedClosureAsStructTransform {
+  typedef llvm::DenseMap<ValueDecl*, ValueDecl*> DeclMap;
+  ClosureExpr *closureExpr;
+  StructDecl *generatedStructDecl;
+  Type generatedStructType;
+  Expr *generatedExpr;
+  FuncDecl *generatedFunc;
+  DeclMap declMap;
+
+  void rewriteBody() const;
+};
+
+/// A request for a closure literal to conform to a protocol
+/// During application of the solution closure literal of `ClosureAsStructType`
+/// will be re-written into an anonymous struct conforming to requested
+/// protocol.
+struct ClosureAsStructConformance {
+  ClosureAsStructType *Ty;
+  ProtocolDecl *Proto;
+};
+
 /// Describes the fixed score of a solution to the constraint system.
 struct Score {
   unsigned Data[NumScoreKinds] = {};
@@ -1045,7 +1066,10 @@ public:
 
   /// The set of type bindings.
   llvm::DenseMap<TypeVariableType *, Type> typeBindings;
-  
+
+  llvm::DenseMap<ClosureAsStructType *, AppliedClosureAsStructTransform>
+    closureAsStructTransformed;
+
   /// The set of overload choices along with their types.
   llvm::DenseMap<ConstraintLocator *, SelectedOverload> overloadChoices;
 
@@ -1099,9 +1123,11 @@ public:
   llvm::MapVector<AnyFunctionRef, AppliedBuilderTransform>
       functionBuilderTransformed;
 
+  SmallVector<ClosureAsStructConformance, 4> ClosureProtocols;
+
   /// Simplify the given type by substituting all occurrences of
   /// type variables for their fixed types.
-  Type simplifyType(Type type) const;
+  Type simplifyType(Type type, bool keepClosureAsStruct = false) const;
 
   /// Coerce the given expression to the given type.
   ///
@@ -2089,6 +2115,9 @@ private:
   SmallVector<std::pair<ConstraintLocator *, ArrayRef<OpenedType>>, 4>
     OpenedTypes;
 
+  /// A multi-mapping from anonymous struct type to list of protocols it should conform to
+  SmallVector<ClosureAsStructConformance, 4> ClosureProtocols;
+
   /// The list of all generic requirements fixed along the current
   /// solver path.
   using FixedRequirement =
@@ -2115,6 +2144,8 @@ private:
   std::vector<std::pair<AnyFunctionRef, AppliedBuilderTransform>>
       functionBuilderTransformed;
 
+  llvm::DenseMap<ClosureAsStructType *, AppliedClosureAsStructTransform>
+      closureAsStructTransformed;
 public:
   /// The locators of \c Defaultable constraints whose defaults were used.
   std::vector<ConstraintLocator *> DefaultedConstraints;
@@ -2584,6 +2615,9 @@ public:
 
     /// The length of \c ClosureTypes.
     unsigned numInferredClosureTypes;
+
+    /// The length of \c ClosureProtocols.
+    unsigned numClosureProtocols;
 
     /// The length of \c contextualTypes.
     unsigned numContextualTypes;
@@ -4271,7 +4305,8 @@ private:
   /// Simplifies a type by replacing type variables with the result of
   /// \c getFixedTypeFn and performing lookup on dependent member types.
   Type simplifyTypeImpl(Type type,
-      llvm::function_ref<Type(TypeVariableType *)> getFixedTypeFn) const;
+      llvm::function_ref<Type(TypeVariableType *)> getFixedTypeFn,
+      llvm::function_ref<Type(ClosureAsStructType *)> getRewrittenTypeFn) const;
 
   /// Attempt to simplify the given construction constraint.
   ///
@@ -4421,6 +4456,13 @@ private:
       Type closureType, Type inferredType,
       ArrayRef<TypeVariableType *> referencedOuterParameters,
       TypeMatchOptions flags, ConstraintLocatorBuilder locator);
+
+  /// Attempt to simplify the given closure-as-type requirement constraint.
+  SolutionKind simplifyClosureAsTypeRequirementConstraint(
+      Type structType,
+      Type funcType,
+      TypeMatchOptions flags,
+      ConstraintLocatorBuilder locator);
 
   /// Attempt to simplify a one-way constraint.
   SolutionKind simplifyOneWayConstraint(ConstraintKind kind,
@@ -5923,6 +5965,13 @@ bool parameterRequiresArgument(
     ArrayRef<AnyFunctionType::Param> params,
     const ParameterListInfo &paramInfo,
     unsigned paramIdx);
+
+constraints::AppliedClosureAsStructTransform appliedClosureAsStructTransform(
+    constraints::ConstraintSystem &CS,
+    SmallVector<constraints::ClosureAsStructConformance, 4> ClosureProtocols,
+    ClosureAsStructType* structType,
+    ClosureExpr* closure,
+    DeclContext *dc);
 
 } // end namespace swift
 

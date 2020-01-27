@@ -220,6 +220,7 @@ bool CanType::isReferenceTypeImpl(CanType type, const GenericSignatureImpl *sig,
   case TypeKind::InOut:
   case TypeKind::TypeVariable:
   case TypeKind::Hole:
+  case TypeKind::ClosureAsStruct:
   case TypeKind::BoundGenericEnum:
   case TypeKind::BoundGenericStruct:
   case TypeKind::SILToken:
@@ -1149,6 +1150,7 @@ CanType TypeBase::computeCanonicalType() {
   case TypeKind::Unresolved:
   case TypeKind::TypeVariable:
   case TypeKind::Hole:
+  case TypeKind::ClosureAsStruct:
     llvm_unreachable("these types are always canonical");
 
 #define SUGARED_TYPE(id, parent) \
@@ -4245,6 +4247,7 @@ case TypeKind::Id:
   case TypeKind::Unresolved:
   case TypeKind::TypeVariable:
   case TypeKind::Hole:
+  case TypeKind::ClosureAsStruct:
   case TypeKind::GenericTypeParam:
   case TypeKind::SILToken:
   case TypeKind::Module:
@@ -4984,6 +4987,7 @@ ReferenceCounting TypeBase::getReferenceCounting() {
   case TypeKind::InOut:
   case TypeKind::TypeVariable:
   case TypeKind::Hole:
+  case TypeKind::ClosureAsStruct:
   case TypeKind::BoundGenericEnum:
   case TypeKind::BoundGenericStruct:
   case TypeKind::SILToken:
@@ -5424,4 +5428,14 @@ SourceLoc swift::extractNearestSourceLoc(Type ty) {
     return extractNearestSourceLoc(nominal);
 
   return SourceLoc();
+}
+
+ClosureAsStructType *ClosureAsStructType::getNew(const ASTContext &C, ProtocolDecl* primaryProtocol, FuncDecl* closureRequirement) {
+  // Allocate memory
+  void *mem = C.Allocate(sizeof(ClosureAsStructType),
+                         alignof(ClosureAsStructType),
+                         AllocationArena::ConstraintSolver);
+
+  // Construct the type.
+  return ::new (mem) ClosureAsStructType(C, primaryProtocol, closureRequirement);
 }

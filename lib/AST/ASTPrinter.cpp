@@ -4651,6 +4651,20 @@ public:
 
     Printer << "_";
   }
+
+  void visitClosureAsStructType(ClosureAsStructType *T) {
+    if (Options.PrintTypesForDebugging) {
+//      std::string Location;
+//      llvm::raw_string_ostream os(Location);
+//      unsigned Tmp = ~0U;
+//      T->getExpr()->getStartLoc().print(os, T->getASTContext().SourceMgr, Tmp);
+
+      Printer << "closure-as-struct";
+      return;
+    }
+
+    Printer << "_";
+  }
 };
 } // unnamed namespace
 

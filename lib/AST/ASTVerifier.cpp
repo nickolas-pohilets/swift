@@ -1168,7 +1168,7 @@ public:
         return;
       if (Ty->hasError())
         return;
-      if (!Ty->is<FunctionType>()) {
+      if (!Ty->is<FunctionType>() && !Ty->is<ClosureAsStructType>()) {
         PrettyStackTraceExpr debugStack(Ctx, "verifying closure", E);
         Out << "a closure should have a function type";
         E->dump(Out);
@@ -3388,6 +3388,7 @@ public:
         Out << "invalid source range for expression: ";
         E->dump(Out);
         Out << "\n";
+        (void)E->getSourceRange();
         abort();
       }
       if (!isGoodSourceRange(E->getSourceRange())) {

@@ -77,8 +77,9 @@ Solution::computeSubstitutions(GenericSignature sig,
     return SubstitutionMap();
 
   TypeSubstitutionMap subs;
-  for (const auto &opened : openedTypes->second)
-    subs[opened.first] = getFixedType(opened.second);
+  for (const auto &opened : openedTypes->second) {
+    subs[opened.first] = simplifyType(opened.second);
+  }
 
   auto lookupConformanceFn =
       [&](CanType original, Type replacement,
@@ -1553,8 +1554,8 @@ namespace {
   private:
     /// Simplify the given type by substituting all occurrences of
     /// type variables for their fixed types.
-    Type simplifyType(Type type) {
-      return solution.simplifyType(type);
+    Type simplifyType(Type type, bool keepClosureAsStruct = false) {
+      return solution.simplifyType(type, keepClosureAsStruct);
     }
 
   public:
@@ -2197,8 +2198,8 @@ namespace {
     ///
     /// This routine is used for 'simple' expressions that only need their
     /// types simplified, with no further computation.
-    Expr *simplifyExprType(Expr *expr) {
-      auto toType = simplifyType(cs.getType(expr));
+    Expr *simplifyExprType(Expr *expr, bool keepClosureAsStruct = false) {
+      auto toType = simplifyType(cs.getType(expr), keepClosureAsStruct);
       cs.setType(expr, toType);
       return expr;
     }
@@ -3240,6 +3241,18 @@ namespace {
     }
 
     Expr *visitParenExpr(ParenExpr *expr) {
+      // implicit StructType comes from a rewritten ClosureAsStruct type,
+      // and enclosing ParenExpr has to be implict as well now
+      auto subExpr = expr->getSubExpr();
+      if (!expr->isImplicit() && subExpr->isImplicit()) {
+        assert(std::find_if(
+            solution.closureAsStructTransformed.begin(),
+            solution.closureAsStructTransformed.end(), [&](auto elt) {
+              return elt.getSecond().generatedExpr == subExpr;
+            }) != solution.closureAsStructTransformed.end() &&
+            "explicit ParenExpr for implicit sub expr?!");
+        expr->setImplicit();
+      }
       return simplifyExprType(expr);
     }
 

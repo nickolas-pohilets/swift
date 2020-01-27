@@ -82,6 +82,8 @@ unsigned LocatorPathElt::getNewSummaryFlags() const {
   case ConstraintLocator::PatternMatch:
   case ConstraintLocator::ArgumentAttribute:
   case ConstraintLocator::UnresolvedMemberChainResult:
+  case ConstraintLocator::ClosureAsStructDisjunctionChoice:
+  case ConstraintLocator::ClosureAsStructRequirement:
     return 0;
 
   case ConstraintLocator::FunctionArgument:
@@ -453,6 +455,14 @@ void ConstraintLocator::dump(SourceManager *sm, raw_ostream &out) const {
 
     case ImplicitCallAsFunction:
       out << "implicit reference to callAsFunction";
+      break;
+
+    case ClosureAsStructDisjunctionChoice:
+      out << "closure-as-struct disjunction choice";
+      break;
+
+    case ConstraintLocator::ClosureAsStructRequirement:
+      out << "closure-as-struct protocol requirement";
       break;
 
     case TernaryBranch: {

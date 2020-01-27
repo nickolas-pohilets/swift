@@ -4959,6 +4959,19 @@ bool ProtocolDecl::existentialTypeSupported() const {
     ExistentialTypeSupportedRequest{const_cast<ProtocolDecl *>(this)}, true);
 }
 
+FuncDecl* ProtocolDecl::requirementForClosureAsStruct() {
+  auto decls = lookupDirect(getASTContext().Id_callAsFunction);
+  for (auto D: decls) {
+    if (auto F = dyn_cast<FuncDecl>(D)) {
+      if (F->isMutating()) {
+        continue;
+      }
+      return F;
+    }
+  }
+  return nullptr;
+}
+
 StringRef ProtocolDecl::getObjCRuntimeName(
                           llvm::SmallVectorImpl<char> &buffer) const {
   // If there is an 'objc' attribute with a name, use that name.

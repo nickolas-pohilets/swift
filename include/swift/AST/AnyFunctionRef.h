@@ -176,9 +176,17 @@ public:
   /// known not to escape from that function.  In this case, captures can be
   /// more efficient.
   bool isKnownNoEscape() const {
-    if (hasType() && !getType()->hasError())
-      return getType()->castTo<AnyFunctionType>()->isNoEscape();
+    if (hasType() && !getType()->hasError()) {
+      if (AnyFunctionType* funcTy = getType()->getAs<AnyFunctionType>()) {
+        return funcTy->isNoEscape();
+      }
+      // Closures-as-structs currently are always escaping.
+    }
     return false;
+  }
+
+  bool isClosureAsStruct() const {
+    return getType()->is<ClosureAsStructType>();
   }
 
   bool isObjC() const {

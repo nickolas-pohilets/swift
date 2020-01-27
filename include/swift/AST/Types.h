@@ -82,11 +82,13 @@ class StructDecl;
 class ProtocolDecl;
 class TypeVariableType;
 class ValueDecl;
+class FuncDecl;
 class ModuleDecl;
 class ModuleType;
 class ProtocolConformance;
 enum PointerTypeKind : unsigned;
 struct ValueOwnershipKind;
+class ClosureExpr;
 
 typedef CanTypeWrapper<SILFunctionType> CanSILFunctionType;
 
@@ -151,7 +153,10 @@ public:
     /// This type contains a type hole.
     HasTypeHole          = 0x800,
 
-    Last_Property = HasTypeHole
+    /// This type contains a ClosureAsStructType
+    HasClosureAsStructType = 0x1000,
+
+    Last_Property = HasClosureAsStructType
   };
   enum { BitWidth = countBitsUsed(Property::Last_Property) };
 
@@ -209,6 +214,9 @@ public:
   /// Does a type with these properties structurally contain a
   /// type hole?
   bool hasTypeHole() const { return Bits & HasTypeHole; }
+
+  /// Does a type with these properties structurally contain a ClosureAsStructType?
+  bool hasClosureAsStructType() const { return Bits & HasClosureAsStructType; }
 
   /// Returns the set of properties present in either set.
   friend RecursiveTypeProperties operator|(Property lhs, Property rhs) {
@@ -698,6 +706,10 @@ public:
   /// non-type parameter base, such as a type variable or concrete type?
   bool hasDependentMember() const {
     return getRecursiveProperties().hasDependentMember();
+  }
+
+  bool hasClosureAsStructType() const {
+    return getRecursiveProperties().hasClosureAsStructType();
   }
 
   /// isExistentialType - Determines whether this type is an existential type,
@@ -5755,6 +5767,32 @@ public:
   }
 };
 DEFINE_EMPTY_CAN_TYPE_WRAPPER(HoleType, Type)
+
+/// A type assigned to a closure literal during type checking if it should be re-written into anonymous struct type.
+/// After type checking it will be replaced with an anonymous struct type.
+class ClosureAsStructType: public TypeBase {
+  ProtocolDecl *Proto;
+  FuncDecl *Requirement;
+
+  ClosureAsStructType(const ASTContext &C, ProtocolDecl* primaryProtocol, FuncDecl* closureRequirement)
+    : TypeBase(TypeKind::ClosureAsStruct, &C, RecursiveTypeProperties::HasClosureAsStructType)
+    , Proto(primaryProtocol)
+    , Requirement(closureRequirement)
+  {}
+public:
+  static ClosureAsStructType *getNew(const ASTContext &C, ProtocolDecl* primaryProtocol, FuncDecl* closureRequirement);
+
+  /// Protocol containing closure requirement. Rest of the protocols will be recorded in ConstraintSystem.
+  ProtocolDecl *getPrimaryProtocol() const { return Proto; }
+
+  /// Protocol requirement that should be implemented by the closure body.
+  FuncDecl *getClosureRequirement() const { return Requirement; }
+
+  static bool classof(const TypeBase *T) {
+    return T->getKind() == TypeKind::ClosureAsStruct;
+  }
+};
+DEFINE_EMPTY_CAN_TYPE_WRAPPER(ClosureAsStructType, Type)
 
 inline bool TypeBase::isTypeVariableOrMember() {
   if (is<TypeVariableType>())

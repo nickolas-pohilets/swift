@@ -926,6 +926,9 @@ void ASTMangler::appendType(Type type, const ValueDecl *forDecl) {
     case TypeKind::Hole:
       llvm_unreachable("mangling type variable");
 
+    case TypeKind::ClosureAsStruct:
+      llvm_unreachable("mangling closure literal type");
+
     case TypeKind::Module:
       llvm_unreachable("Cannot mangle module type yet");
 

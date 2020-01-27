@@ -177,6 +177,11 @@ enum class ConstraintKind : char {
   /// - Handled specially by binding inference, specifically contributes
   ///   to the bindings only if there are no contextual types available.
   DefaultClosureType,
+
+  /// Connects a type variable that will be resolved into ClosureAsStructType with a closure signature.
+  /// When type variable gets ClosureAsStructType assigned as a fixed type, this constraint can be simplified
+  /// into matching function types.
+  ClosureAsStructRequirement,
 };
 
 /// Classification of the different kinds of constraints.
@@ -568,6 +573,7 @@ public:
     case ConstraintKind::OneWayEqual:
     case ConstraintKind::OneWayBindParam:
     case ConstraintKind::DefaultClosureType:
+    case ConstraintKind::ClosureAsStructRequirement:
       return ConstraintClassification::Relational;
 
     case ConstraintKind::ValueMember:

@@ -1572,6 +1572,7 @@ private:
     case TypeKind::LValue:
     case TypeKind::TypeVariable:
     case TypeKind::Hole:
+    case TypeKind::ClosureAsStruct:
     case TypeKind::Module:
     case TypeKind::SILBlockStorage:
     case TypeKind::SILBox:
