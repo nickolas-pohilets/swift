@@ -2787,16 +2787,12 @@ namespace {
 
       // Create the constraint to bind requirement of the ClosureAsStructType to inferredType.
       auto *requirementLocator = CS.getConstraintLocator(locator, ConstraintLocator::ClosureAsStructRequirement);
-      auto *asStruct = Constraint::create(CS, ConstraintKind::ClosureAsStructRequirement, closureType, inferredType, requirementLocator);
+      auto *asStruct = Constraint::create(CS, ConstraintKind::ClosureAsStructRequirement, closureType, inferredType, requirementLocator, collectVarRefs.varRefs);
 
       // Create the disjunction
       auto *disjunctionLocator = CS.getConstraintLocator(locator, ConstraintLocator::ClosureAsStructDisjunctionChoice);
       llvm::SmallVector<Constraint *, 2> choices = { asFunction, asStruct };
       CS.addDisjunctionConstraint(choices, disjunctionLocator, RememberChoice);
-
-      //auto *bindToStruct = Constraint::create(CS, ConstraintKind::Bind, varTy, structTy, disjunctionLocator);
-      //auto callAsFunctionNameRef = DeclNameRef(closure->getASTContext().Id_callAsFunction);
-      //auto *bindRequirement = Constraint::createMember(CS, ConstraintKind::ValueMember, structTy, closureType, callAsFunctionNameRef, CurDC, FunctionRefKind::Unapplied, requirementLocator);
 
       return closureType;
     }

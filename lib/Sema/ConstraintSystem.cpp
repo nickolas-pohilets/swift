@@ -2637,13 +2637,14 @@ Type ConstraintSystem::simplifyType(Type type) const {
 
   // Map type variables down to the fixed types of their representatives.
   return simplifyTypeImpl(type,
-      [&](TypeVariableType *tvt) -> Type {
-        if (auto fixed = getFixedType(tvt))
-          return simplifyType(fixed);
+    [&](TypeVariableType *tvt) -> Type {
+      if (auto fixed = getFixedType(tvt))
+        return simplifyType(fixed);
 
-        return getRepresentative(tvt);
-      },
-      llvm::identity<ClosureAsStructType *>());
+      return getRepresentative(tvt);
+    },
+    llvm::identity<ClosureAsStructType *>()
+  );
 }
 
 Type Solution::simplifyType(Type type, bool keepClosureAsStruct) const {

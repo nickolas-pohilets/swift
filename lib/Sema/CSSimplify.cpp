@@ -2824,7 +2824,7 @@ ConstraintSystem::matchTypesBindTypeVar(
     });
   }
 
-  if (typeVar->getImpl().isClosureType()) {
+  if (typeVar->getImpl().isClosureType() && !type->is<ClosureAsStructType>()) {
     return resolveClosure(typeVar, type, locator)
                ? getTypeMatchSuccess()
                : getTypeMatchFailure(locator);
@@ -4609,6 +4609,11 @@ ConstraintSystem::matchTypes(Type type1, Type type2, ConstraintKind kind,
               type2->is<AnyFunctionType>())
             return matchTypesBindTypeVar(typeVar1, type2, kind, flags, locator,
                                          formUnsolvedResult);
+        }
+
+        if (type2->is<ClosureAsStructType>()) {
+          return matchTypesBindTypeVar(typeVar1, type2, kind, flags, locator,
+                                       formUnsolvedResult);
         }
       }
 
