@@ -29,15 +29,22 @@ distributed actor DA_userDefined {
 }
 
 distributed actor DA_userDefined2 {
+  let dummy: [String] = ["abc", "xyz"]
   init(system: FakeActorSystem) {
     self.actorSystem = system
   }
 
   deinit {
+    print("\(self) isRemote = \(__isRemoteActor(self))")
     print("Deinitializing \(self.id)")
+    // Uncomment the next line to cause a crash
+    // if (__isRemoteActor(self)) { print(self.dummy) }
     return
   }
 }
+
+@_silgen_name("swift_distributed_actor_is_remote")
+public func __isRemoteActor(_ actor: AnyObject) -> Bool
 
 distributed actor DA_state {
   var name = "Hello"
@@ -222,6 +229,7 @@ func test() {
     try! DA_userDefined2.resolve(id: address, using: system)
   }()
   // CHECK-NEXT: resolve type:DA_userDefined2, address:ActorAddress(address: "[[ADDR5:remote-1]]")
+  // CHECK-NEXT: main.DA_userDefined2 isRemote = true
   // CHECK-NEXT: Deinitializing
 }
 
