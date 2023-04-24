@@ -6154,12 +6154,24 @@ synthesizeEmptyFunctionBody(AbstractFunctionDecl *afd, void *context) {
            /*isTypeChecked=*/true };
 }
 
+static bool hasAsyncDestructor(ClassDecl *CD) {
+  if (!CD)
+    return false;
+  DestructorDecl *DD = CD->getDestructor();
+  if (DD && DD->hasAsync())
+    return true;
+  return hasAsyncDestructor(CD->getSuperclassDecl());
+}
+
 DestructorDecl *
 GetDestructorRequest::evaluate(Evaluator &evaluator, ClassDecl *CD) const {
   auto dc = CD->getImplementationContext();
 
   auto &ctx = CD->getASTContext();
-  auto *DD = new (ctx) DestructorDecl(CD->getLoc(), dc->getAsGenericContext());
+  bool isAsync = hasAsyncDestructor(CD->getSuperclassDecl());
+  auto *DD =
+      new (ctx) DestructorDecl(CD->getLoc(), isAsync, /*AsyncLoc=*/SourceLoc(),
+                               dc->getAsGenericContext());
 
   DD->setImplicit();
 
@@ -10798,15 +10810,16 @@ bool ConstructorDecl::hasLifetimeDependentReturn() const {
   return isa_and_nonnull<LifetimeDependentReturnTypeRepr>(getResultTypeRepr());
 }
 
-DestructorDecl::DestructorDecl(SourceLoc DestructorLoc, DeclContext *Parent)
-  : AbstractFunctionDecl(DeclKind::Destructor, Parent,
-                         DeclBaseName::createDestructor(), DestructorLoc,
-                         /*Async=*/false, /*AsyncLoc=*/SourceLoc(),
-                         /*Throws=*/false, /*ThrowsLoc=*/SourceLoc(),
-                         /*ThrownType=*/TypeLoc(),
-                         /*HasImplicitSelfDecl=*/true,
-                         /*GenericParams=*/nullptr),
-    SelfDecl(nullptr) {
+DestructorDecl::DestructorDecl(SourceLoc DestructorLoc, bool Async,
+                               SourceLoc AsyncLoc, DeclContext *Parent)
+    : AbstractFunctionDecl(DeclKind::Destructor, Parent,
+                           DeclBaseName::createDestructor(), DestructorLoc,
+                           Async, AsyncLoc,
+                           /*Throws=*/false, /*ThrowsLoc=*/SourceLoc(),
+                           /*ThrownType=*/TypeLoc(),
+                           /*HasImplicitSelfDecl=*/true,
+                           /*GenericParams=*/nullptr),
+      SelfDecl(nullptr) {
   setParameters(ParameterList::createEmpty(Parent->getASTContext()));
 }
 

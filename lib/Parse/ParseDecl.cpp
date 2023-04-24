@@ -10062,6 +10062,11 @@ parseDeclDeinit(ParseDeclOptions Flags, DeclAttributes &Attributes) {
     }
   };
 
+  SourceLoc asyncLoc, throwsLoc;
+  TypeRepr *thrownTyRepr = nullptr;
+  parseEffectsSpecifiers(SourceLoc(), asyncLoc, /*reasync=*/nullptr, throwsLoc,
+                         /*rethrows=*/nullptr, thrownTyRepr);
+
   // '{'
   if (!Tok.is(tok::l_brace)) {
     switch (SF.Kind) {
@@ -10073,11 +10078,16 @@ parseDeclDeinit(ParseDeclOptions Flags, DeclAttributes &Attributes) {
     case SourceFileKind::Main:
     case SourceFileKind::MacroExpansion:
     case SourceFileKind::DefaultArgument:
-      if (Tok.is(tok::identifier)) {
+      if (Tok.is(tok::identifier) && !asyncLoc.isValid() &&
+          !throwsLoc.isValid()) {
         diagnose(Tok, diag::destructor_has_name).fixItRemove(Tok.getLoc());
         consumeToken();
       }
       skipParameterListIfPresent();
+      if (!asyncLoc.isValid() && !throwsLoc.isValid()) {
+        parseEffectsSpecifiers(SourceLoc(), asyncLoc, /*reasync=*/nullptr,
+                               throwsLoc, /*rethrows=*/nullptr, thrownTyRepr);
+      }
       if (Tok.is(tok::l_brace))
         break;
 
@@ -10086,7 +10096,13 @@ parseDeclDeinit(ParseDeclOptions Flags, DeclAttributes &Attributes) {
     }
   }
 
-  auto *DD = new (Context) DestructorDecl(DestructorLoc, CurDeclContext);
+  if (throwsLoc.isValid()) {
+    diagnose(throwsLoc, diag::destructor_throws).fixItRemove(throwsLoc);
+  }
+
+  bool isAsync = asyncLoc.isValid();
+  auto *DD = new (Context)
+      DestructorDecl(DestructorLoc, isAsync, asyncLoc, CurDeclContext);
   parseAbstractFunctionBody(DD);
 
   DD->getAttrs() = Attributes;

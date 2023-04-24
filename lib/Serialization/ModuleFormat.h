@@ -58,8 +58,7 @@ const uint16_t SWIFTMODULE_VERSION_MAJOR = 0;
 /// describe what change you made. The content of this comment isn't important;
 /// it just ensures a conflict if two people change the module format.
 /// Don't worry about adhering to the 80-column limit for this line.
-const uint16_t SWIFTMODULE_VERSION_MINOR =
-    878; // immortal bit in LifetimeDependence
+const uint16_t SWIFTMODULE_VERSION_MINOR = 879; // async deinit
 
 /// A standard hash seed used for all string hashes in a serialized module.
 ///
@@ -1840,14 +1839,15 @@ namespace decls_block {
     // conformance info (if any).
   >;
 
-  using DestructorLayout = BCRecordLayout<
-    DESTRUCTOR_DECL,
-    DeclContextIDField, // context decl
-    BCFixed<1>,  // implicit?
-    BCFixed<1>,  // objc?
-    GenericSignatureIDField // generic environment
-    // This record is trailed by its inlinable body text
-  >;
+  using DestructorLayout =
+      BCRecordLayout<DESTRUCTOR_DECL,
+                     DeclContextIDField,     // context decl
+                     BCFixed<1>,             // implicit?
+                     BCFixed<1>,             // objc?
+                     BCFixed<1>,             // async?
+                     GenericSignatureIDField // generic environment
+                     // This record is trailed by its inlinable body text
+                     >;
 
   using MacroLayout = BCRecordLayout<
     MACRO_DECL,
