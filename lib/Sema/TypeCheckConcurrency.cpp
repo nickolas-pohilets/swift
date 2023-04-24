@@ -5054,6 +5054,12 @@ static OverrideIsolationResult validOverrideIsolation(
   // call super deinit.
   bool isDtor = isa<DestructorDecl>(value);
 
+  SubstitutionMap subs;
+  if (Type selfType = value->getDeclContext()->getSelfInterfaceType()) {
+    subs = selfType->getMemberSubstitutionMap(value->getModuleContext(),
+                                              overridden);
+  }
+
   auto refResult = ActorReferenceResult::forReference(
       valueRef, SourceLoc(), declContext, std::nullopt, std::nullopt,
       isDtor ? overriddenIsolation : isolation,
@@ -7078,4 +7084,28 @@ bool swift::diagnoseNonSendableFromDeinit(
                                 refLoc,
                                 diag::non_sendable_from_deinit,
                                 var->getDescriptiveKind(), var->getName());
+}
+
+std::optional<ActorIsolation> swift::shouldHopForSuperDeinit(DestructorDecl *dd) {
+  DestructorDecl *superDD = dd->getSuperDeinit();
+  if (!superDD)
+    return std::nullopt;
+  // Async functions are responsible for hopping themselves.
+  if (superDD->hasAsync())
+    return std::nullopt;
+
+  auto overriddenIsolation = getOverriddenIsolationFor(dd);
+
+  // Super deinit is not isolated, can be called on any actor
+  if (!overriddenIsolation.isActorIsolated())
+    return std::nullopt;
+
+  auto isolation = getActorIsolation(dd);
+  if (isolation == overriddenIsolation) {
+    return std::nullopt;
+  }
+
+  // Super deinit has different isolation
+  // A hop is needed
+  return overriddenIsolation;
 }
