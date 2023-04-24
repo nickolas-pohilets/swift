@@ -22,6 +22,7 @@
 #include "../CompatibilityOverride/CompatibilityOverride.h"
 #include "swift/ABI/Actor.h"
 #include "swift/ABI/Task.h"
+#include "swift/ABI/TaskOptions.h"
 #include "TaskPrivate.h"
 #include "swift/Basic/HeaderFooterLayout.h"
 #include "swift/Basic/PriorityQueue.h"
@@ -2249,14 +2250,16 @@ static void swift_task_deinitOnExecutorImpl(void *object,
 
 SWIFT_CC(swift)
 static void swift_task_deinitAsyncImpl(void *object, void *work,
+                                       SerialExecutorRef newExecutor,
                                        size_t rawFlags) {
   TaskCreateFlags taskFlags;
   taskFlags.setCopyTaskLocals(false);
   taskFlags.setEnqueueJob(true);
   taskFlags.setFunctionConsumesContext(true);
+  InitialSerialExecutorTaskOptionRecord executorOption(newExecutor);
   auto taskAndContext =
-      swift_task_create(taskFlags.getOpaqueValue(), nullptr, nullptr, work,
-                        static_cast<HeapObject *>(object));
+      swift_task_create(taskFlags.getOpaqueValue(), &executorOption, nullptr,
+                        work, static_cast<HeapObject *>(object));
   swift_release(taskAndContext.Task);
 }
 
