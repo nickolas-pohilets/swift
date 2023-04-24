@@ -325,3 +325,4 @@ Added: _swift_task_deinitOnExecutor
 
 // async deinit
 Added: _swift_task_deinitAsync
+Added: __swift_concurrency_debug_non_context_adapter
