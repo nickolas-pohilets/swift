@@ -8784,6 +8784,8 @@ public:
   }
 };
 
+enum class DestructorKind { Destroyer, Deallocator, IsolatedDeallocator };
+
 /// Declares a precedence group.  For example:
 ///
 /// \code

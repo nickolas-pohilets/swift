@@ -322,3 +322,6 @@ Added: _$ss9TaskLocalC9withValue_9operation9isolation4file4lineqd__x_qd__yYaKXES
 
 // isolated deinit
 Added: _swift_task_deinitOnExecutor
+
+// async deinit
+Added: _swift_task_deinitAsync
