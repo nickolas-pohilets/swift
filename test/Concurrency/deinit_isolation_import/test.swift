@@ -29,6 +29,12 @@ import Beta
 @MainActor
 func isolatedFunc() {} // expected-note 15{{calls to global function 'isolatedFunc()' from outside of its actor context are implicitly asynchronous}}
 
+class ProbeDefaultAsync_BaseIsolatedDealloc: BaseIsolatedDealloc {
+    nonisolated deinit async {
+        await isolatedFunc()
+    }
+}
+
 // CHECK-LABEL: @objc @_inheritsConvenienceInitializers class ProbeImplicit_RoundtripNonisolated : RoundtripNonisolated {
 // CHECK: @objc deinit
 // CHECK: }
@@ -123,6 +129,82 @@ class ProbeGlobal_RoundtripIsolated: RoundtripIsolated {
 #else
     @MainActor deinit {}
 #endif
+}
+
+// MARK: - RoundtripAsync
+
+// CHECK-LABEL: @objc @_inheritsConvenienceInitializers class ProbeImplicit_RoundtripAsync : RoundtripAsync {
+// CHECK: @objc deinit async
+// CHECK: }
+// CHECK-SYMB: ProbeImplicit_RoundtripAsync.__isolated_deallocating_deinit
+// CHECK-SYMB-NEXT: // Isolation: global_actor. type: MainActor
+// CHECK-SYMB-NEXT: sil hidden [ossa] @$s4test28ProbeImplicit_RoundtripAsyncCfZ : $@convention(thin) @async (@owned ProbeImplicit_RoundtripAsync) -> () {
+// CHECK-SYMB: // ProbeImplicit_RoundtripAsync.__deallocating_deinit
+// CHECK-SYMB-NEXT: // Isolation: nonisolated
+// CHECK-SYMB-NEXT: sil hidden [ossa] @$s4test28ProbeImplicit_RoundtripAsyncCfD : $@convention(method) (@owned ProbeImplicit_RoundtripAsync) -> () {
+class ProbeImplicit_RoundtripAsync: RoundtripAsync {}
+
+#if !SILGEN
+class ProbeDefault_RoundtripAsync: RoundtripAsync {
+    // expected-error@+2 {{deinit must be 'async' because parent class has 'async' deinit}}
+    // expected-error@+1 {{nonisolated deinitializer 'deinit' has different actor isolation from main actor-isolated overridden declaration}}
+    deinit {}
+}
+#endif
+
+#if !SILGEN
+class ProbeIsolated_RoundtripAsync: RoundtripAsync {
+    // expected-error@+2 {{deinit is marked isolated, but containing class 'ProbeIsolated_RoundtripAsync' is not isolated to an actor}}
+    // expected-error@+1 {{deinit must be 'async' because parent class has 'async' deinit}}
+    isolated deinit {
+        isolatedFunc() // ok, isolation of the overridden deinit is used as a recovery strategy
+    }
+}
+#endif
+
+#if !SILGEN
+class ProbeGlobal_RoundtripAsync: RoundtripAsync {
+    // expected-error@+2 {{deinit must be 'async' because parent class has 'async' deinit}}
+    // expected-error@+1 {{global actor 'AnotherActor'-isolated deinitializer 'deinit' has different actor isolation from main actor-isolated overridden declaration}}
+    @AnotherActor deinit {}
+}
+#endif
+
+class ProbeDefaultAsync_RoundtripAsync: RoundtripAsync {
+    deinit async {}
+}
+
+#if !SILGEN
+class ProbeIsolatedAsync_RoundtripAsync: RoundtripAsync {
+    isolated deinit async { // expected-error {{deinit is marked isolated, but containing class 'ProbeIsolatedAsync_RoundtripAsync' is not isolated to an actor}}
+        isolatedFunc() // ok, isolation of the overridden deinit is used as a recovery strategy
+    }
+}
+#endif
+
+@AnotherActor
+class ProbePropagatedAsync_RoundtripAsync: RoundtripAsync {
+    isolated deinit async {
+#if SILGEN
+        await isolatedFunc()
+#else
+        // expected-error@+2 {{expression is 'async' but is not marked with 'await'}}
+        // expected-note@+1 {{calls to global function 'isolatedFunc()' from outside of its actor context are implicitly asynchronous}}
+        isolatedFunc()
+#endif
+    }
+}
+
+class ProbeGlobalAsync_RoundtripAsync: RoundtripAsync {
+    @AnotherActor deinit async {
+#if SILGEN
+        await isolatedFunc()
+#else
+        // expected-error@+2 {{expression is 'async' but is not marked with 'await'}}
+        // expected-note@+1 {{calls to global function 'isolatedFunc()' from outside of its actor context are implicitly asynchronous}}
+        isolatedFunc()
+#endif
+    }
 }
 
 // MARK: - BaseNonisolated
