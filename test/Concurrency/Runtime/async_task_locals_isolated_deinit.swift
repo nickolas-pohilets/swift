@@ -50,7 +50,7 @@ actor ActorNoOp {
     self.probe.probeExpectedExecutor = self.unownedExecutor
   }
 
-  deinit {
+  isolated deinit {
     expectTrue(isCurrentExecutor(self.unownedExecutor))
     expectEqual(expectedNumber, TL.number)
     checkTaskLocalStack()
