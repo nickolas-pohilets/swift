@@ -58,6 +58,27 @@ actor ActorNoOp {
   }
 }
 
+actor ActorNoOpAsync {
+  let expectedNumber: Int
+  let group: DispatchGroup
+  let probe: Probe
+
+  init(expectedNumber: Int, group: DispatchGroup) {
+    self.expectedNumber = expectedNumber
+    self.group = group
+    self.probe = Probe(expectedNumber: expectedNumber, group: group)
+    self.probe.probeExpectedExecutor = self.unownedExecutor
+  }
+
+  isolated deinit async {
+    await Task.yield()
+    expectTrue(isCurrentExecutor(self.unownedExecutor))
+    expectEqual(expectedNumber, TL.number)
+    checkTaskLocalStack()
+    group.leave()
+  }
+}
+
 @globalActor actor AnotherActor: GlobalActor {
   static let shared = AnotherActor()
 
@@ -107,10 +128,34 @@ class ClassNoOp: Probe {
   }
 }
 
+class ClassNoOpAsync: Probe {
+  let expectedNumber: Int
+  let group: DispatchGroup
+  let probe: Probe
+
+  override init(expectedNumber: Int, group: DispatchGroup) {
+    self.expectedNumber = expectedNumber
+    self.group = group
+    self.probe = Probe(expectedNumber: expectedNumber, group: group)
+    super.init(expectedNumber: expectedNumber, group: group)
+  }
+
+  @AnotherActor
+  deinit async {
+    expectTrue(isCurrentExecutor(AnotherActor.shared.unownedExecutor))
+    expectEqual(expectedNumber, TL.number)
+    await Task.yield()
+    expectTrue(isCurrentExecutor(AnotherActor.shared.unownedExecutor))
+    expectEqual(expectedNumber, TL.number)
+    checkTaskLocalStack()
+    group.leave()
+  }
+}
+
 let tests = TestSuite("Isolated Deinit")
 
 if #available(SwiftStdlib 5.1, *) {
-  tests.test("fast path") {
+  tests.test("class sync fast path") {
     let group = DispatchGroup()
     group.enter(1)
     Task {
@@ -123,13 +168,10 @@ if #available(SwiftStdlib 5.1, *) {
     group.wait()
   }
   
-  tests.test("slow path") {
+  tests.test("class sync slow path") {
     let group = DispatchGroup()
-    group.enter(2)
+    group.enter(1)
     Task {
-      TL.$number.withValue(37) {
-        _ = ActorNoOp(expectedNumber: 0, group: group)
-      }
       TL.$number.withValue(99) {
         _ = ClassNoOp(expectedNumber: 0, group: group)
       }
@@ -137,12 +179,56 @@ if #available(SwiftStdlib 5.1, *) {
     group.wait()
   }
 
-  tests.test("no TLs") {
+  tests.test("actor sync fast path") {
+    let group = DispatchGroup()
+    group.enter(1)
+    Task {
+      TL.$number.withValue(99) {
+        // Despite last release happening not on the actor itself,
+        // this is still a fast path due to optimisation for deallocating actors.
+        _ = ActorNoOp(expectedNumber: 99, group: group)
+      }
+    }
+    group.wait()
+  }
+
+  // Test for actor sync slow path is not implemented because it cannot be set up in a non-racy manner
+
+  tests.test("async same actor") {
+    let group = DispatchGroup()
+    group.enter(1)
+    Task {
+      await TL.$number.withValue(42) {
+        await AnotherActor.shared.performTesting {
+          _ = ClassNoOpAsync(expectedNumber: 0, group: group)
+        }
+      }
+    }
+    group.wait()
+  }
+  
+  tests.test("async different actor") {
     let group = DispatchGroup()
     group.enter(2)
     Task {
+      TL.$number.withValue(37) {
+        _ = ActorNoOpAsync(expectedNumber: 0, group: group)
+      }
+      TL.$number.withValue(99) {
+        _ = ClassNoOpAsync(expectedNumber: 0, group: group)
+      }
+    }
+    group.wait()
+  }
+  
+  tests.test("no TLs") {
+    let group = DispatchGroup()
+    group.enter(4)
+    Task {
       _ = ActorNoOp(expectedNumber: 0, group: group)
       _ = ClassNoOp(expectedNumber: 0, group: group)
+      _ = ActorNoOpAsync(expectedNumber: 0, group: group)
+      _ = ClassNoOpAsync(expectedNumber: 0, group: group)
     }
     group.wait()
   }
