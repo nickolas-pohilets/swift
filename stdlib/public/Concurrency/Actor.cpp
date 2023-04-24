@@ -2247,6 +2247,19 @@ static void swift_task_deinitOnExecutorImpl(void *object,
   swift_task_enqueue(job, newExecutor);
 }
 
+SWIFT_CC(swift)
+static void swift_task_deinitAsyncImpl(void *object, void *work,
+                                       size_t rawFlags) {
+  TaskCreateFlags taskFlags;
+  taskFlags.setCopyTaskLocals(false);
+  taskFlags.setEnqueueJob(true);
+  taskFlags.setFunctionConsumesContext(true);
+  auto taskAndContext =
+      swift_task_create(taskFlags.getOpaqueValue(), nullptr, nullptr, work,
+                        static_cast<HeapObject *>(object));
+  swift_release(taskAndContext.Task);
+}
+
 /*****************************************************************************/
 /************************* GENERIC ACTOR INTERFACES **************************/
 /*****************************************************************************/
