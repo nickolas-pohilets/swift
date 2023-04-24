@@ -4196,6 +4196,23 @@ public:
     } else if (!DD->isBodySkipped()) {
       addDelayedFunction(DD);
     }
+
+    if (!DD->hasAsync()) {
+      DestructorDecl *superDeinit = DD->getSuperDeinit();
+      if (superDeinit && superDeinit->hasAsync()) {
+        DD->diagnose(diag::deinit_must_be_async)
+            .fixItInsertAfter(DD->getDestructorLoc(), " async");
+
+        // Skip superclasses with synthesized deinit
+        while (superDeinit && superDeinit->hasAsync() &&
+               superDeinit->isSynthesized()) {
+          superDeinit = superDeinit->getSuperDeinit();
+        }
+        if (superDeinit) {
+          superDeinit->diagnose(diag::super_async_deinit_here);
+        }
+      }
+    }
   }
 
   void visitBuiltinTupleDecl(BuiltinTupleDecl *BTD) {
