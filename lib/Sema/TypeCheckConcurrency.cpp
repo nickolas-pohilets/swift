@@ -1675,6 +1675,10 @@ static bool wasLegacyEscapingUseRestriction(AbstractFunctionDecl *fn) {
 
   auto isolationKind = getActorIsolation(fn).getKind();
   if (isa<DestructorDecl>(fn)) {
+    if (fn->hasAsync()) {
+      // Async deinits did not exist before
+      return false;
+    }
     switch (isolationKind) {
     case ActorIsolation::GlobalActor:
     case ActorIsolation::ActorInstance:
@@ -1683,7 +1687,6 @@ static bool wasLegacyEscapingUseRestriction(AbstractFunctionDecl *fn) {
     case ActorIsolation::Nonisolated:
     case ActorIsolation::NonisolatedUnsafe:
     case ActorIsolation::Unspecified:
-      assert(!fn->hasAsync());
       return true;
     case ActorIsolation::Erased:
       llvm_unreachable("destructor decl cannot have erased isolation");
