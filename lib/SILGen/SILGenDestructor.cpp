@@ -125,14 +125,26 @@ void SILGenFunction::emitDestroyingDestructor(DestructorDecl *dd) {
   auto actor = emitExecutor(Loc, ai, managedSelf);
   if (actor) {
     ExpectedExecutor = *actor;
+  } else if (dd->hasAsync()) {
+    // In async functions, the generic executor is our expected executor
+    // if we don't have any sort of isolation.
+    ExpectedExecutor = emitGenericExecutor(Loc);
   }
 
   // Jump to the expected executor.
   if (ExpectedExecutor) {
-    // For a synchronous function, check that we're on the same executor.
-    // Note: if we "know" that the code is completely Sendable-safe, this
-    // is unnecessary. The type checker will need to make this determination.
-    emitPreconditionCheckExpectedExecutor(Loc, ExpectedExecutor);
+    if (F.isAsync()) {
+      // For an async function, hop to the executor.
+      B.createHopToExecutor(
+          RegularLocation::getDebugOnlyLocation(F.getLocation(), getModule()),
+          ExpectedExecutor,
+          /*mandatory*/ false);
+    } else {
+      // For a synchronous function, check that we're on the same executor.
+      // Note: if we "know" that the code is completely Sendable-safe, this
+      // is unnecessary. The type checker will need to make this determination.
+      emitPreconditionCheckExpectedExecutor(Loc, ExpectedExecutor);
+    }
   }
 
   // Create a basic block to jump to for the implicit destruction behavior

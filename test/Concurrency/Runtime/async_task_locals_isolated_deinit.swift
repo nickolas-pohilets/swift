@@ -75,6 +75,27 @@ actor ProxyActor: Actor {
   }
 }
 
+actor ActorNoOpAsync {
+  let expectedNumber: Int
+  let group: DispatchGroup
+  let probe: Probe
+
+  init(expectedNumber: Int, group: DispatchGroup) {
+    self.expectedNumber = expectedNumber
+    self.group = group
+    self.probe = Probe(expectedNumber: expectedNumber, group: group)
+    self.probe.probeExpectedExecutor = self.unownedExecutor
+  }
+
+  isolated deinit async {
+    await Task.yield()
+    expectTrue(isCurrentExecutor(self.unownedExecutor))
+    expectEqual(expectedNumber, TL.number)
+    checkTaskLocalStack()
+    group.leave()
+  }
+}
+
 @globalActor actor AnotherActor: GlobalActor {
   static let shared = AnotherActor()
 
@@ -117,6 +138,30 @@ class ClassNoOp: Probe {
 
   @AnotherActor
   deinit {
+    expectTrue(isCurrentExecutor(AnotherActor.shared.unownedExecutor))
+    expectEqual(expectedNumber, TL.number)
+    checkTaskLocalStack()
+    group.leave()
+  }
+}
+
+class ClassNoOpAsync: Probe {
+  let expectedNumber: Int
+  let group: DispatchGroup
+  let probe: Probe
+
+  override init(expectedNumber: Int, group: DispatchGroup) {
+    self.expectedNumber = expectedNumber
+    self.group = group
+    self.probe = Probe(expectedNumber: expectedNumber, group: group)
+    super.init(expectedNumber: expectedNumber, group: group)
+  }
+
+  @AnotherActor
+  deinit async {
+    expectTrue(isCurrentExecutor(AnotherActor.shared.unownedExecutor))
+    expectEqual(expectedNumber, TL.number)
+    await Task.yield()
     expectTrue(isCurrentExecutor(AnotherActor.shared.unownedExecutor))
     expectEqual(expectedNumber, TL.number)
     checkTaskLocalStack()
@@ -176,12 +221,41 @@ if #available(SwiftStdlib 5.1, *) {
     group.wait()
   }
 
-  tests.test("no TLs") {
+  tests.test("async same actor") {
+    let group = DispatchGroup()
+    group.enter(1)
+    Task {
+      await TL.$number.withValue(42) {
+        await AnotherActor.shared.performTesting {
+          _ = ClassNoOpAsync(expectedNumber: 0, group: group)
+        }
+      }
+    }
+    group.wait()
+  }
+  
+  tests.test("async different actor") {
     let group = DispatchGroup()
     group.enter(2)
     Task {
+      TL.$number.withValue(37) {
+        _ = ActorNoOpAsync(expectedNumber: 0, group: group)
+      }
+      TL.$number.withValue(99) {
+        _ = ClassNoOpAsync(expectedNumber: 0, group: group)
+      }
+    }
+    group.wait()
+  }
+  
+  tests.test("no TLs") {
+    let group = DispatchGroup()
+    group.enter(4)
+    Task {
       _ = ActorNoOp(expectedNumber: 0, group: group)
       _ = ClassNoOp(expectedNumber: 0, group: group)
+      _ = ActorNoOpAsync(expectedNumber: 0, group: group)
+      _ = ClassNoOpAsync(expectedNumber: 0, group: group)
     }
     group.wait()
   }
