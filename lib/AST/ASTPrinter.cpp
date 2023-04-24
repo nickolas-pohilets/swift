@@ -1074,6 +1074,7 @@ private:
   /// Print the function parameters in curried or selector style,
   /// to match the original function declaration.
   void printFunctionParameters(AbstractFunctionDecl *AFD);
+  void printFunctionEffects(AbstractFunctionDecl *AFD);
 
   void printArgument(const Argument &arg);
   
@@ -4085,6 +4086,10 @@ void PrintAST::printFunctionParameters(AbstractFunctionDecl *AFD) {
   printParameterList(BodyParams, parameterListTypes,
                      AFD->argumentNameIsAPIByDefault());
 
+  printFunctionEffects(AFD);
+}
+
+void PrintAST::printFunctionEffects(AbstractFunctionDecl *AFD) {
   if (AFD->hasAsync() || AFD->hasThrows()) {
     Printer.printStructurePre(PrintStructureKind::EffectsSpecifiers);
     SWIFT_DEFER {
@@ -4523,10 +4528,8 @@ void PrintAST::visitDestructorDecl(DestructorDecl *decl) {
   printDocumentationComment(decl);
   printAttributes(decl);
   printContextIfNeeded(decl);
-  recordDeclLoc(decl,
-    [&]{
-      Printer << "deinit";
-    });
+  recordDeclLoc(
+      decl, [&] { Printer << "deinit"; }, [&] { printFunctionEffects(decl); });
 
   printBodyIfNecessary(decl);
 }
