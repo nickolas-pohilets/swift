@@ -8755,7 +8755,8 @@ class DestructorDecl : public AbstractFunctionDecl {
   ParamDecl *SelfDecl;
 
 public:
-  DestructorDecl(SourceLoc DestructorLoc, DeclContext *Parent);
+  DestructorDecl(SourceLoc DestructorLoc, bool Async, SourceLoc AsyncLoc,
+                 DeclContext *Parent);
 
   ParamDecl **getImplicitSelfDeclStorage() { return &SelfDecl; }
 
