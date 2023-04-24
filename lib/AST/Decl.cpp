@@ -3275,6 +3275,20 @@ ValueDecl *ValueDecl::getOverriddenDecl() const {
   return overridden.front();
 }
 
+ValueDecl *ValueDecl::getOverriddenDeclOrSuperDeinit() const {
+  if (auto overridden = getOverriddenDecl()) {
+    return overridden;
+  }
+  if (isa<DestructorDecl>(this)) {
+    if (auto classDecl = dyn_cast<ClassDecl>(getDeclContext())) {
+      if (auto superclass = classDecl->getSuperclassDecl()) {
+        return superclass->getDestructor();
+      }
+    }
+  }
+  return nullptr;
+}
+
 bool ValueDecl::overriddenDeclsComputed() const {
   return LazySemanticInfo.hasOverriddenComputed;
 }
