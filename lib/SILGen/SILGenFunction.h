@@ -824,11 +824,7 @@ public:
   /// and calls isolated deallocating destructor on the right executor.
   void emitIsolatingDestructor(DestructorDecl *dd);
   void emitIsolatingDestructorImpl(DestructorDecl *dd, SILValue selfValue,
-                                   SILLocation loc, ManagedValue dtorValue,
-                                   SILType dtorTy);
-  void emitAsyncDestructorImpl(DestructorDecl *dd, SILValue selfValue,
-                               SILLocation loc, ManagedValue dtorValue,
-                               SILType dtorTy);
+                                   SILLocation loc);
 
   /// Whether we are inside a constructor whose hops are injected by
   /// definite initialization.
