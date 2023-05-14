@@ -3,6 +3,8 @@
 // RUN: %target-swift-typecheck-module-from-interface(%t.swiftinterface) -module-name IsolatedDeinitCompatibility
 // RUN: %FileCheck %s < %t.swiftinterface
 
+func dummy() async {}
+
 // MARK: Sync deinit in class
 
 // CHECK-NOT: #
@@ -210,6 +212,242 @@ public actor SyncActorIsolatedPublic {
 // CHECK: }
 public actor SyncActorNonisolatedPublic {
     nonisolated deinit {}
+}
+
+// MARK: Async deinit in class
+
+// CHECK: #if {{.*}}$IsolatedDeinit
+// CHECK-NOT: #
+// CHECK: open class AsyncClassDefaultOpen {
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}deinit async
+// CHECK-NOT: #
+// CHECK: }
+// CHECK-NOT: #
+// CHECK: #else
+// CHECK-NOT: #
+// CHECK: public class AsyncClassDefaultOpen {
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}deinit
+// CHECK-NOT: #
+// CHECK: }
+// CHECK-NOT: #
+// CHECK: #endif
+open class AsyncClassDefaultOpen {
+    deinit async { await dummy() }
+}
+
+// CHECK-NOT: #
+// CHECK: public class AsyncClassDefaultPublic {
+// CHECK-NOT: #
+// CHECK: #if {{.*}}$IsolatedDeinit
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}deinit async
+// CHECK-NOT: #
+// CHECK: #else
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}deinit
+// CHECK-NOT: #
+// CHECK: #endif
+// CHECK-NOT: #
+// CHECK: }
+public class AsyncClassDefaultPublic {
+    deinit async { await dummy() }
+}
+
+// CHECK: #if {{.*}}$IsolatedDeinit
+// CHECK-NOT: #
+// CHECK: open class AsyncClassGlobalActorOpen {
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}@_Concurrency.MainActor deinit async
+// CHECK-NOT: #
+// CHECK: }
+// CHECK-NOT: #
+// CHECK: #else
+// CHECK-NOT: #
+// CHECK: public class AsyncClassGlobalActorOpen {
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}deinit
+// CHECK-NOT: #
+// CHECK: }
+// CHECK-NOT: #
+// CHECK: #endif
+open class AsyncClassGlobalActorOpen {
+    @MainActor deinit async { await dummy() }
+}
+
+// CHECK-NOT: #
+// CHECK: public class AsyncClassGlobalActorPublic {
+// CHECK-NOT: #
+// CHECK: #if {{.*}}$IsolatedDeinit
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}@_Concurrency.MainActor deinit async
+// CHECK-NOT: #
+// CHECK: #else
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}deinit
+// CHECK-NOT: #
+// CHECK: #endif
+// CHECK-NOT: #
+// CHECK: }
+public class AsyncClassGlobalActorPublic {
+    @MainActor deinit async { await dummy() }
+}
+
+// CHECK: #if {{.*}}$IsolatedDeinit
+// CHECK-NOT: #
+// CHECK: @_Concurrency.MainActor open class AsyncClassIsolatedOpen {
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}isolated deinit async
+// CHECK-NOT: #
+// CHECK: }
+// CHECK-NOT: #
+// CHECK: #else
+// CHECK-NOT: #
+// CHECK: @_Concurrency.MainActor public class AsyncClassIsolatedOpen {
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}deinit
+// CHECK-NOT: #
+// CHECK: }
+// CHECK-NOT: #
+// CHECK: #endif
+@MainActor
+open class AsyncClassIsolatedOpen {
+    isolated deinit async { await dummy() }
+}
+
+// CHECK-NOT: #
+// CHECK: public class AsyncClassIsolatedPublic {
+// CHECK-NOT: #
+// CHECK: #if {{.*}}$IsolatedDeinit
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}isolated deinit async
+// CHECK-NOT: #
+// CHECK: #else
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}deinit
+// CHECK-NOT: #
+// CHECK: #endif
+// CHECK-NOT: #
+// CHECK: }
+@MainActor
+public class AsyncClassIsolatedPublic {
+    isolated deinit async { await dummy() }
+}
+
+// CHECK: #if {{.*}}$IsolatedDeinit
+// CHECK-NOT: #
+// CHECK: @_Concurrency.MainActor open class AsyncClassNonisolatedOpen {
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}nonisolated deinit async
+// CHECK-NOT: #
+// CHECK: }
+// CHECK-NOT: #
+// CHECK: #else
+// CHECK-NOT: #
+// CHECK: @_Concurrency.MainActor public class AsyncClassNonisolatedOpen {
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}deinit
+// CHECK-NOT: #
+// CHECK: }
+// CHECK-NOT: #
+// CHECK: #endif
+@MainActor
+open class AsyncClassNonisolatedOpen {
+    nonisolated deinit async { await dummy() }
+}
+
+// CHECK-NOT: #
+// CHECK: public class AsyncClassNonisolatedPublic {
+// CHECK-NOT: #
+// CHECK: #if {{.*}}$IsolatedDeinit
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}nonisolated deinit async
+// CHECK-NOT: #
+// CHECK: #else
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}deinit
+// CHECK-NOT: #
+// CHECK: #endif
+// CHECK-NOT: #
+// CHECK: }
+@MainActor
+public class AsyncClassNonisolatedPublic {
+    nonisolated deinit async { await dummy() }
+}
+
+// MARK: Async deinit in actor
+
+// CHECK-NOT: #
+// CHECK: public actor AsyncActorDefaultPublic {
+// CHECK-NOT: #
+// CHECK: #if {{.*}}$IsolatedDeinit
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}deinit async
+// CHECK-NOT: #
+// CHECK: #else
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}deinit
+// CHECK-NOT: #
+// CHECK: #endif
+// CHECK-NOT: #
+// CHECK: }
+public actor AsyncActorDefaultPublic {
+    deinit async { await dummy() }
+}
+
+// CHECK-NOT: #
+// CHECK: public actor AsyncActorGlobalActorPublic {
+// CHECK-NOT: #
+// CHECK: #if {{.*}}$IsolatedDeinit
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}@_Concurrency.MainActor deinit async
+// CHECK-NOT: #
+// CHECK: #else
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}deinit
+// CHECK-NOT: #
+// CHECK: #endif
+// CHECK-NOT: #
+// CHECK: }
+public actor AsyncActorGlobalActorPublic {
+    @MainActor deinit async { await dummy() }
+}
+
+// CHECK-NOT: #
+// CHECK: public actor AsyncActorIsolatedPublic {
+// CHECK-NOT: #
+// CHECK: #if {{.*}}$IsolatedDeinit
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}isolated deinit async
+// CHECK-NOT: #
+// CHECK: #else
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}deinit
+// CHECK-NOT: #
+// CHECK: #endif
+// CHECK-NOT: #
+// CHECK: }
+public actor AsyncActorIsolatedPublic {
+    isolated deinit async { await dummy() }
+}
+
+// CHECK-NOT: #
+// CHECK: public actor AsyncActorNonisolatedPublic {
+// CHECK-NOT: #
+// CHECK: #if {{.*}}$IsolatedDeinit
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}nonisolated deinit async
+// CHECK-NOT: #
+// CHECK: #else
+// CHECK-NOT: #
+// CHECK: {{(@objc )?}}deinit
+// CHECK-NOT: #
+// CHECK: #endif
+// CHECK-NOT: #
+// CHECK: }
+public actor AsyncActorNonisolatedPublic {
+    nonisolated deinit async { await dummy() }
 }
 
 // MARK: - Open actor

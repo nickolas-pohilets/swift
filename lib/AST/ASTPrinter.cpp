@@ -4090,7 +4090,8 @@ void PrintAST::printFunctionParameters(AbstractFunctionDecl *AFD) {
 }
 
 void PrintAST::printFunctionEffects(AbstractFunctionDecl *AFD) {
-  if (AFD->hasAsync() || AFD->hasThrows()) {
+  if ((AFD->hasAsync() || AFD->hasThrows()) &&
+      !(Options.SuppressIsolatedDeinit && isa<DestructorDecl>(AFD))) {
     Printer.printStructurePre(PrintStructureKind::EffectsSpecifiers);
     SWIFT_DEFER {
       Printer.printStructurePost(PrintStructureKind::EffectsSpecifiers);
