@@ -777,6 +777,9 @@ bool swift::usesFeatureIsolatedDeinit(const Decl *decl) {
     return cd->getFormalAccess() == AccessLevel::Open &&
            usesFeatureIsolatedDeinit(cd->getDestructor());
   } else if (auto dd = dyn_cast<DestructorDecl>(decl)) {
+    if (dd->hasAsync()) {
+      return true;
+    }
     if (dd->hasExplicitIsolationAttribute()) {
       return true;
     }
