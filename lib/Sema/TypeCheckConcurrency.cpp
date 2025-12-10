@@ -4217,8 +4217,16 @@ namespace {
       // Record whether the callee isolation or the context isolation
       // is preconcurrency, which is used later to downgrade errors to
       // warnings in minimal checking.
-      bool preconcurrency = getContextIsolation().preconcurrency() ||
-          (calleeDecl && getActorIsolation(calleeDecl).preconcurrency());
+      bool preconcurrency = [=]() -> bool {
+        if (getContextIsolation().preconcurrency())
+          return true;
+        if (calleeDecl && getActorIsolation(calleeDecl).preconcurrency())
+          return true;
+        TypeAliasType *ta = dyn_cast<TypeAliasType>(fnExprType.getPointer());
+        if (ta && ta->getDecl()->preconcurrency())
+          return true;
+        return false;
+      }();
       unsatisfiedIsolation =
           unsatisfiedIsolation->withPreconcurrency(preconcurrency);
 

@@ -6,7 +6,7 @@
 
 @preconcurrency @MainActor func f() { }
 // expected-note @-1 2{{calls to global function 'f()' from outside of its actor context are implicitly asynchronous}}
-// expected-complete-note @-2 2{{calls to global function 'f()' from outside of its actor context are implicitly asynchronous}}
+// expected-complete-note @-2 3{{calls to global function 'f()' from outside of its actor context are implicitly asynchronous}}
 
 @preconcurrency typealias FN = @Sendable () -> Void
 
@@ -64,4 +64,24 @@ class C { // expected-complete-note {{class 'C' does not conform to the 'Sendabl
         return nil
       })
   }
+}
+
+@preconcurrency typealias Action = @MainActor () -> Void
+
+struct ActionBox {
+    var value: Action?
+}
+
+// expected-complete-note@+1 2{{add '@MainActor' to make global function 'testApply(g:)' part of global actor 'MainActor'}}
+func testApply(g: Action) {
+  // expected-complete-note@-1 {{calls to parameter 'g' from outside of its actor context are implicitly asynchronous}}
+
+  f() //expected-complete-warning {{call to main actor-isolated global function 'f()' in a synchronous nonisolated context}}
+  g() //expected-complete-warning {{call to main actor-isolated parameter 'g' in a synchronous nonisolated context}}
+}
+
+func testConvert(g: @escaping Action) {
+  let x: () -> Void = f
+  let y: () -> Void = g
+  _ = (x, y)
 }
